@@ -1,0 +1,2 @@
+# Optional manual builder for the local public OpenStreetMap place index.
+osmium==4.3.2

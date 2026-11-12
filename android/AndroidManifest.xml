@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="local.pleos.cabin" android:versionCode="12" android:versionName="1.6.5">
+    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="34" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="pleos.car.permission.STT_SERVICE" />
+    <uses-permission android:name="pleos.car.permission.TTS_SERVICE" />
+    <uses-permission android:name="pleos.car.permission.FUSED_LOCATION" />
+    <uses-permission android:name="ai.pleos.playground.service.location.fused.FUSED_LOCATION_BINDING" />
+    <uses-permission android:name="pleos.car.permission.NAVI_ROUTE" />
+    <uses-permission android:name="pleos.car.permission.NAVI_ROUTE_SEARCH" />
+    <uses-permission android:name="pleos.car.permission.NAVI_CUSTOM_MAP" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <queries>
+        <intent><action android:name="ai.pleos.playground.caas.intent.action.SPEECH_START" /></intent>
+        <package android:name="ai.pleos.playground.caas" />
+        <package android:name="ai.umos.ambientai" />
+        <provider android:authorities="ai.umos.ambientai.provider" />
+        <package android:name="ai.pleos.playground.service.navi" />
+        <package android:name="ai.umos.maps.android.navigation.app" />
+        <package android:name="ai.pleos.playground.service.location.fused" />
+    </queries>
+    <application android:label="모아" android:allowBackup="false"
+        android:icon="@mipmap/ic_moa" android:roundIcon="@mipmap/ic_moa"
+        android:debuggable="true" android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <meta-data android:name="ai.pleos.playground.caas.min_version_name" android:value="4.1.29" />
+        <meta-data android:name="ai.pleos.playground.caas.min_version_code" android:value="4001029" />
+        <meta-data android:name="ai.pleos.playground.sdk.stt.current_version_name" android:value="3.3.1" />
+        <meta-data android:name="ai.pleos.playground.sdk.stt.current_version_code" android:value="3003001" />
+        <meta-data android:name="ai.pleos.playground.sdk.tts.current_version_name" android:value="3.3.1" />
+        <meta-data android:name="ai.pleos.playground.sdk.tts.current_version_code" android:value="3003001" />
+        <meta-data android:name="ai.pleos.playground.service.location.fused.min_version_name" android:value="0.5.0" />
+        <meta-data android:name="ai.pleos.playground.service.location.fused.min_version_code" android:value="1" />
+        <meta-data android:name="ai.pleos.playground.sdk.location.fused.current_version_name" android:value="1.1.3" />
+        <meta-data android:name="ai.pleos.playground.sdk.location.fused.current_version_code" android:value="12" />
+        <service android:name=".CabinSpeechService" android:exported="false" android:foregroundServiceType="microphone" />
+        <service android:name=".NavigationTrackingService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-initiated vehicle native navigation callback monitoring and trip arrival synchronization while the separate OEM navigation app is foreground. No microphone or location capture. Stops on arrival, cancellation, failure, or app task removal." />
+        </service>
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask"
+            android:label="모아" android:icon="@mipmap/ic_moa"
+            android:resizeableActivity="true" android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="START_CABIN_CONVERSATION" />
+                <action android:name="RECOMMEND_CABIN_PLACES" />
+                <action android:name="SHOW_SAVED_CABIN_PLACES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

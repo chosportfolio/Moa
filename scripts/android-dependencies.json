@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "description": "Pinned inputs of the verified manual Android build. Download from original public repositories; no SDK binaries are redistributed. This is not a full Gradle dependency graph.",
+  "dependencies": [
+    {
+      "coordinate": "androidx.annotation:annotation:1.3.0",
+      "filename": "annotation-1.3.0.jar",
+      "url": "https://dl.google.com/dl/android/maven2/androidx/annotation/annotation/1.3.0/annotation-1.3.0.jar",
+      "sha256": "97dc45afefe3a1e421da42b8b6e9f90491477c45fc6178203e3a5e8a05ee8553"
+    },
+    {
+      "coordinate": "org.jetbrains:annotations:23.0.0",
+      "filename": "annotations-23.0.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0.jar",
+      "sha256": "7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05"
+    },
+    {
+      "coordinate": "androidx.core:core:1.8.0",
+      "filename": "core-1.8.0.aar",
+      "url": "https://dl.google.com/dl/android/maven2/androidx/core/core/1.8.0/core-1.8.0.aar",
+      "sha256": "48c64a15ec3eb11bfb33339e5ceb70ec7f821bd2dfa2eb8675ebd5353317e792",
+      "classes_jar": "core.jar",
+      "classes_sha256": "104b4e98655c03dfc1a80fef663953a6fbe778c67c9a52a4bdda324537ab048d"
+    },
+    {
+      "coordinate": "androidx.core:core-ktx:1.8.0",
+      "filename": "core-ktx-1.8.0.aar",
+      "url": "https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.8.0/core-ktx-1.8.0.aar",
+      "sha256": "1790bb9b0b3efe6a27fb1ba3a3530b0b9aa6654e58bf8a9ef783f767e50d31b4",
+      "classes_jar": "core-ktx.jar",
+      "classes_sha256": "2f1532bb27309225a725e0d9eee1c64074af5241c555c6aac9d41b5b4767d9f9"
+    },
+    {
+      "coordinate": "ai.pleos.playground:fused-location-aidl:0.0.5",
+      "filename": "fused-location-aidl-0.0.5.aar",
+      "url": "https://nexus-playground.pleos.ai/repository/maven-releases/ai/pleos/playground/fused-location-aidl/0.0.5/fused-location-aidl-0.0.5.aar",
+      "sha256": "e91760ef70aece1f692742532511b3926b83f7a393ec15844240e48bc9514cdb",
+      "classes_jar": "fused-location-aidl.jar",
+      "classes_sha256": "e33377dfa353b985ebd98f08fda854a22e2074df82a4fd5bf2ce89924dc57eb0"
+    },
+    {
+      "coordinate": "ai.pleos.playground:fused-location-data:0.0.3",
+      "filename": "fused-location-data-0.0.3.aar",
+      "url": "https://nexus-playground.pleos.ai/repository/maven-releases/ai/pleos/playground/fused-location-data/0.0.3/fused-location-data-0.0.3.aar",
+      "sha256": "13df348329100ae16611897cc53bad5a2ebf2fd62c9252300dc95e52ccf028ec",
+      "classes_jar": "fused-location-data.jar",
+      "classes_sha256": "22270419164e0f6e1f4f28daa38e349d32495caa5e4cb6a36a7ad7b0914811bd"
+    },
+    {
+      "coordinate": "ai.pleos.playground:FusedLocation:1.1.3",
+      "filename": "FusedLocation-1.1.3.aar",
+      "url": "https://nexus-playground.pleos.ai/repository/maven-releases/ai/pleos/playground/FusedLocation/1.1.3/FusedLocation-1.1.3.aar",
+      "sha256": "20ff6dc2efbea53f32d1ce4712d517fc4abac3a9ce4b990f4aca52c35ebef081",
+      "classes_jar": "fused-location.jar",
+      "classes_sha256": "97eb72ef042db9307494879d7b9c186d0fba1cc7bfb6049fd44ea47bd7571d98"
+    },
+    {
+      "coordinate": "com.google.code.gson:gson:2.10.1",
+      "filename": "gson-2.10.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar",
+      "sha256": "4241c14a7727c34feea6507ec801318a3d4a90f070e4525681079fb94ee4c593"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlin:kotlin-reflect:1.9.25",
+      "filename": "kotlin-reflect-1.9.25.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.25/kotlin-reflect-1.9.25.jar",
+      "sha256": "0f8386ddfd69e7f454a1e6b90b271dccd901d96a257fdf633ecf052fb8951d9f"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:1.9.25",
+      "filename": "kotlin-stdlib-1.9.25.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.25/kotlin-stdlib-1.9.25.jar",
+      "sha256": "f9cdcdbff1f5de85380ae526977e683726c2aa42db1ed6e6e50ae89e496e95fd"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.3",
+      "filename": "kotlinx-coroutines-android-1.6.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.6.3/kotlinx-coroutines-android-1.6.3.jar",
+      "sha256": "ad9e7b9a983d0ce03d75621a243167bbc96c3262a6e39e89cd8e0b1a5ac8c554"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.6.3",
+      "filename": "kotlinx-coroutines-core-jvm-1.6.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.3/kotlinx-coroutines-core-jvm-1.6.3.jar",
+      "sha256": "58a497ab595d83bbbf28892a8b34ab57d94309a8742ee0eba43cb86408d235bf"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.6.3",
+      "filename": "kotlinx-serialization-core-jvm-1.6.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-core-jvm/1.6.3/kotlinx-serialization-core-jvm-1.6.3.jar",
+      "sha256": "29c821a8d4e25cbfe4f2ce96cdd4526f61f8f4e69a135f9612a34a81d93b65f1"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.6.3",
+      "filename": "kotlinx-serialization-json-jvm-1.6.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-json-jvm/1.6.3/kotlinx-serialization-json-jvm-1.6.3.jar",
+      "sha256": "d3234179bcff1886d53d67c11eca47f7f3cf7b63c349d16965f6db51b7f3dd9a"
+    },
+    {
+      "coordinate": "ai.pleos.playground:navi-aidl:3.0.1",
+      "filename": "navi-aidl-3.0.1.aar",
+      "url": "https://nexus-playground.pleos.ai/repository/maven-releases/ai/pleos/playground/navi-aidl/3.0.1/navi-aidl-3.0.1.aar",
+      "sha256": "384e62b9b17102ce618272f4afbef5021867c04bd13e46a6592218643ceb40ff",
+      "classes_jar": "navi-aidl.jar",
+      "classes_sha256": "471fe23448ccf219ca397dbb8dfbcd79e62bd9b8ca36e19139ea20e2c89bc933"
+    },
+    {
+      "coordinate": "ai.pleos.playground:navi-data:3.0.4",
+      "filename": "navi-data-3.0.4.aar",
+      "url": "https://nexus-playground.pleos.ai/repository/maven-releases/ai/pleos/playground/navi-data/3.0.4/navi-data-3.0.4.aar",
+      "sha256": "7ca00e592134b53237a48cc3b7864063ecc5e2885465e3ce9c8c2a29789a2e2b",
+      "classes_jar": "navi-data.jar",
+      "classes_sha256": "ca863405741cb9b77a9cef2aec43bec30eab63876ba9ff6c6860ec8a8f24fe3b"
+    },
+    {
+      "coordinate": "ai.pleos.playground:NaviHelper:3.0.5",
+      "filename": "NaviHelper-3.0.5.aar",
+      "url": "https://nexus-playground.pleos.ai/repository/maven-releases/ai/pleos/playground/NaviHelper/3.0.5/NaviHelper-3.0.5.aar",
+      "sha256": "15fadd11c7c611b1abdf7ebf9ce91f2a6ce2728e60b4e38b4343e11bb9c12e97",
+      "classes_jar": "navi-helper.jar",
+      "classes_sha256": "1802e8a1f4f68706765133157b170f62b76b0164a528a2f43550a896f7915d31"
+    },
+    {
+      "coordinate": "ai.pleos.playground:SpeechToText:3.3.1",
+      "filename": "SpeechToText-3.3.1.aar",
+      "url": "https://nexus-playground.pleos.ai/repository/maven-releases/ai/pleos/playground/SpeechToText/3.3.1/SpeechToText-3.3.1.aar",
+      "sha256": "35109ad13400a7fa103cca9fabbf9b785e63a6a98b17a0698a1aef51458d37bf",
+      "classes_jar": "speech-to-text.jar",
+      "classes_sha256": "260dfd339ed9ed2b7718da7dc9722b2a60b933b41d4b4c9ccaa0016e7bf0b369"
+    },
+    {
+      "coordinate": "ai.pleos.playground:TextToSpeech:3.3.1",
+      "filename": "TextToSpeech-3.3.1.aar",
+      "url": "https://nexus-playground.pleos.ai/repository/maven-releases/ai/pleos/playground/TextToSpeech/3.3.1/TextToSpeech-3.3.1.aar",
+      "sha256": "bfbfb58376c69604afad3389878980461971683f0c51f619d03ab74b5e6a0375",
+      "classes_jar": "text-to-speech.jar",
+      "classes_sha256": "17ed98d62aaeac6b7e35e988e972294b98f3b1c72bca3fad1cffab323ee78b4a"
+    },
+    {
+      "coordinate": "ai.pleos.playground.security:universal-access:0.6.0",
+      "filename": "universal-access-0.6.0.aar",
+      "url": "https://nexus-playground.pleos.ai/repository/maven-releases/ai/pleos/playground/security/universal-access/0.6.0/universal-access-0.6.0.aar",
+      "sha256": "98fd9c83cbd3b6b868e8c5a088dea85e51e8daac15bfe275250ee916d4eec24b",
+      "classes_jar": "universal-access.jar",
+      "classes_sha256": "2ae0d6dedce6b2a2e5098c06aeb04f2ba3136e32d7c6383e2f56b051600a9d92"
+    }
+  ]
+}

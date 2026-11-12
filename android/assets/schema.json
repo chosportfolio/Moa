@@ -1,0 +1,47 @@
+{
+  "packageName": "local.pleos.cabin",
+  "appDescription": "A shared trip destination app that records passenger discussions, recommends places from the current conversation, and keeps previously saved visits.",
+  "invokeWord": "모아",
+  "version": "1.6.1",
+  "actionCalls": [
+    {
+      "type": "function",
+      "function": {
+        "name": "START_CABIN_CONVERSATION",
+        "description": "Open the app and start capturing the passengers' discussion for the current destination planning conversation.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        },
+        "component": "activity"
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "RECOMMEND_CABIN_PLACES",
+        "description": "Recommend places matching the passengers' recorded preferences, or read the current place recommendations and their reasons if they are already up to date.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        },
+        "component": "activity"
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "SHOW_SAVED_CABIN_PLACES",
+        "description": "Open the list of previously saved visits with their conversation summaries and reasons for choosing each place.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        },
+        "component": "activity"
+      }
+    }
+  ]
+}

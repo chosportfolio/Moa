@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>모아 MOA</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app-shell" data-view="transcript">
+    <header class="app-header">
+      <div class="brand"><div class="brand-title"><span class="brand-symbol" aria-hidden="true"><svg viewBox="0 0 108 108"><path d="M32 73V38Q32 33 37 38L54 57L71 38Q76 33 76 38V73"/><path d="M54 57V73"/></svg></span><h1>모아</h1></div><button id="region-picker-button" class="region-picker" aria-haspopup="dialog"><span id="selected-region-label">대화 기준 추천</span><span aria-hidden="true">⌄</span></button></div>
+      <div class="header-status"><div class="sample-actions"><button id="demo-button" class="text-button">샘플 대화</button><button id="demo-exit-button" class="text-button" hidden>내 대화로</button></div><span id="demo-badge" class="demo-badge" hidden>예시</span><span id="connection-badge" class="connection-badge"><i></i><span>연결 중</span></span><time id="clock"></time></div>
+    </header>
+
+    <div id="notice" class="notice" role="status" hidden><span id="notice-text"></span><button id="notice-close" aria-label="알림 닫기">×</button></div>
+
+    <section class="crew-strip" aria-label="탑승자 좌석">
+      <div class="crew-heading"><span>좌석</span><strong id="crew-count">좌석 확인 필요</strong></div>
+      <div id="crew-pills" class="crew-pills"></div>
+    </section>
+
+    <div class="workspace">
+      <nav class="tabs" aria-label="화면 선택">
+        <button id="tab-transcript" class="tab active" aria-selected="true">우리 대화 <span id="segment-count">0</span></button>
+        <button id="tab-places" class="tab" aria-selected="false">장소 추천 <span id="place-count">0</span></button>
+        <button id="tab-saved" class="tab" aria-selected="false">저장한 장소 <span id="saved-count">0</span></button>
+        <div class="tab-tools"><button id="export-button" class="text-button" disabled>대화록 저장</button><button id="reset-button" class="text-button" disabled>새 대화</button></div>
+      </nav>
+
+      <main id="transcript-panel" class="panel transcript-panel">
+        <div id="transcript-scroll" class="transcript-scroll" tabindex="0" aria-label="탑승자 대화 목록">
+        <div id="transcript-empty" class="empty-state">
+          <h2>가고 싶은 곳을 이야기해 보세요</h2>
+          <p>대화를 기록하고, 나온 의견에 맞춰 장소를 찾아요.</p>
+          <span class="empty-hint">아래의 ‘대화 시작’을 눌러주세요.</span>
+        </div>
+        <div id="transcript-list" class="transcript-list" aria-live="polite"></div>
+        <div id="listening-card" class="listening-card" hidden><div class="live-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div><strong id="listening-title">듣고 있어요</strong><p id="listening-description">인식된 내용이 대화창에 이어져요.</p></div><time id="listening-time">00:00</time></div>
+        <div id="job-card" class="job-card" hidden><span class="spinner"></span><div><strong id="job-title">대화 정리 중</strong><p id="job-message">음성을 처리하고 있어요.</p></div></div>
+        <div id="stream-recovery" class="stream-recovery" role="alert" hidden><div><strong>저장 여부를 확인하지 못한 발언이 있어요</strong><p id="stream-recovery-message"></p><p>이미 전달된 발언은 대화에 추가될 수 있어요.</p></div><div class="recovery-actions"><button id="stream-retry-button" class="button button-dark">다시 전송</button><button id="stream-discard-button" class="text-button">다시 보내지 않기</button></div></div>
+        </div>
+        <button id="new-messages-button" class="new-messages-button" hidden><span id="new-messages-label">새 대화</span><span aria-hidden="true">↓</span></button>
+      </main>
+
+      <main id="places-panel" class="panel places-panel" hidden>
+        <div id="places-overview">
+        <section id="recommend-heading" class="recommend-heading"><h2 id="summary-title">우리가 찾는 곳</h2><form id="region-form"><label for="region-input" class="visually-hidden">추천 기준</label><div class="region-controls"><input id="region-input" maxlength="80" autocomplete="off" placeholder="찾을 지역 또는 동네"><button id="recommend-refresh" class="text-button" type="submit">다시 추천</button></div></form></section>
+        <section id="conversation-summary" class="conversation-summary" hidden>
+          <div class="summary-content"><p id="summary-text"></p><details id="summary-evidence-details" class="summary-evidence-details"><summary>대화 내용 자세히</summary><h3 id="summary-detail-title" hidden></h3><p id="summary-full-text" class="summary-full-text"></p><ul id="summary-bullets" class="summary-bullets"></ul><div id="summary-evidence" class="summary-evidence"></div></details><p id="summary-limitations" class="summary-limitations" hidden></p></div>
+        </section>
+        <p id="search-context" class="search-context" hidden></p>
+        <details id="search-details" class="search-details" aria-label="장소 정보의 출처와 검색 범위" hidden><summary>검색 범위와 정보 출처</summary>
+          <div class="search-detail"><span>검색 범위</span><p><strong id="search-region"></strong><span id="search-coverage"></span></p></div>
+          <div class="search-detail"><span>정보 출처</span><p id="search-source"></p></div>
+        </details>
+        <section id="preference-summary" class="preference-summary" hidden><h3>대화에서 나온 조건</h3><div id="preference-list"></div></section>
+        <div id="places-job" class="job-card" hidden><span class="spinner"></span><div><strong>장소를 찾고 있어요</strong><p id="places-job-message">대화 내용을 확인하고 있어요.</p></div></div>
+        <div id="places-empty" class="places-empty"><span class="empty-place-symbol" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M20 34s11-10 11-20a11 11 0 0 0-22 0c0 10 11 20 11 20Z"/><circle cx="20" cy="14" r="4"/></svg></span><h3 id="places-empty-title">어디로 갈지, 함께 이야기해요</h3><p id="places-empty-description">먹고 싶은 것, 가고 싶은 곳을 말하면 대화에서 찾아드릴게요.</p><div class="empty-place-actions"><button id="places-empty-action" class="button button-record" data-mode="record">대화 시작</button><button id="places-empty-sample" class="text-button">샘플로 먼저 둘러보기</button></div></div>
+        <section id="results-toolbar" class="results-toolbar" hidden aria-label="추천 장소 분류"><div class="results-heading"><h3>함께 고를 장소</h3><span id="results-count"></span><button id="recommend-listen" class="text-button" hidden>추천 듣기</button></div><div id="place-filters" class="place-filters" aria-label="장소 종류"></div><p id="results-guidance" class="results-guidance"></p></section>
+        <div id="places-list" class="places-list"></div>
+        </div>
+        <section id="place-detail" class="place-detail" hidden aria-label="선택한 장소 상세">
+          <div class="detail-toolbar"><button id="detail-back" class="text-button detail-back">← 추천 목록</button><button id="trip-cancel-button" class="text-button">선택 취소</button></div>
+          <div class="destination-layout">
+            <div class="destination-card"><span id="detail-category" class="eyebrow"></span><h2 id="detail-name"></h2><p id="detail-address"></p><p id="detail-native-match" class="native-match-label" hidden></p><p id="detail-coordinates" class="destination-coordinates"></p><div class="native-map-note"><strong>지도 · 차량 내비게이션</strong><p id="detail-map-message">길찾기 안내를 누르면 차량 내비게이션에 목적지를 전달해요.</p></div></div>
+            <div class="destination-reason"><span class="section-label">추천 이유</span><h3 id="detail-summary-title"></h3><p id="detail-summary-text"></p><ul id="detail-reasons" class="reasons"></ul><details id="detail-cautions" class="unverified-details" hidden><summary>방문 전에 확인할 정보</summary><ul id="detail-caution-list"></ul></details><details id="detail-source" class="detail-source" hidden><summary>선정 근거와 정보 출처</summary><div id="detail-source-content"></div></details></div>
+          </div>
+          <div id="navigation-status" class="navigation-status" role="status"><span class="navigation-indicator" aria-hidden="true"></span><div><strong id="navigation-title">목적지를 확인해 주세요</strong><p id="navigation-message">길찾기 안내는 순정 내비 연결 상태에 따라 사용할 수 있어요.</p></div></div>
+          <div class="destination-actions"><button id="native-preview-button" class="button button-outline" disabled>차량 지도에서 보기</button><button id="manual-arrival-button" class="button button-outline" hidden>직접 도착 확인</button><button id="guidance-button" class="button button-record" disabled>길찾기 안내</button></div>
+          <p class="destination-footnote">도착하면 대화 요약과 함께 저장할 수 있어요.</p>
+        </section>
+      </main>
+      <main id="saved-panel" class="panel saved-panel" hidden>
+        <section class="saved-heading"><p>방문한 장소와 대화 요약</p><span id="saved-total"></span></section>
+        <div id="saved-empty" class="places-empty"><h3>저장한 장소가 없어요</h3><p>목적지에 도착한 뒤 저장할 수 있어요.</p></div>
+        <div id="saved-list" class="saved-list"></div>
+      </main>
+    </div>
+
+    <footer class="recording-dock">
+      <div class="dock-caption"><span id="dock-dot" class="dock-dot"></span><div><strong id="dock-title">대화를 시작할 수 있어요</strong><p id="dock-subtitle">녹음 전에 탑승자에게 알려주세요.</p></div></div>
+      <div class="dock-actions"><button id="record-button" class="button button-record" disabled><span id="record-icon" aria-hidden="true">●</span><span id="record-label">준비 중</span></button><button id="recommend-button" class="button button-outline" disabled>장소 추천</button></div>
+    </footer>
+    <div class="app-footnote"><span id="seat-source-note">좌석 정보가 없는 발언은 ‘좌석 확인 필요’로 표시돼요.</span></div>
+  </div>
+
+  <div id="edit-dialog" class="modal-backdrop" hidden><section class="modal edit-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="edit-title"><header class="modal-header"><h2 id="edit-title">발언 확인하기</h2><button id="edit-close" class="icon-button" aria-label="발언 수정 닫기">×</button></header><form id="edit-form"><label for="edit-seat">말한 좌석</label><select id="edit-seat"><option value="driver">운전자</option><option value="passenger">동승자</option><option value="rear1">뒷좌석 1</option><option value="rear2">뒷좌석 2</option><option value="unknown">좌석 확인 필요</option></select><label for="edit-text">대화 내용</label><textarea id="edit-text" rows="4" required maxlength="4000"></textarea><p class="modal-note">수정한 내용을 반영해 장소를 다시 추천할 수 있어요.</p><p id="edit-error" class="dialog-error" role="alert" hidden></p><footer class="modal-footer"><button id="edit-cancel" type="button" class="button button-outline">취소</button><button id="edit-save" type="submit" class="button button-dark">수정 저장</button></footer></form></section></div>
+  <div id="region-dialog" class="modal-backdrop" hidden><section class="modal small-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="region-title"><h2 id="region-title">대화에 맞춰 어디서 찾을까요?</h2><div class="location-option"><button id="current-location-button" class="button button-outline" type="button">대화 기준 추천 사용</button><p id="location-status-text" role="status">현재 위치를 확인하고 있어요.</p><p class="modal-note">대화에 나온 지역과 취향을 우선해요. 가까운 곳을 원하거나 지역을 정하지 않았다면 현재 위치 주변에서 찾아요.</p></div><div id="area-choice-section" class="area-choice-section" hidden><p>대화에서 나온 지역 중에서 골라주세요.</p><div id="area-choice-list" tabindex="-1"></div></div><form id="region-picker-form"><label for="region-picker-input">지역을 직접 정하기</label><input id="region-picker-input" maxlength="70" required autocomplete="off" placeholder="시·동·역 이름"><p id="region-picker-error" class="dialog-error" role="alert" hidden></p><div class="modal-footer"><button id="region-picker-cancel" type="button" class="button button-outline">닫기</button><button id="region-picker-save" type="submit" class="button button-dark">지역 선택</button></div></form></section></div>
+  <div id="reset-dialog" class="modal-backdrop" hidden><section class="modal small-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="reset-title"><h2 id="reset-title">새 대화를 시작할까요?</h2><p id="reset-description">현재 대화와 추천 결과를 지워요. 남겨둘 대화는 먼저 저장해 주세요.</p><p id="reset-error" class="dialog-error" role="alert" hidden></p><div class="modal-footer"><button id="reset-cancel" class="button button-outline">돌아가기</button><button id="reset-confirm" class="button button-dark">새 대화 시작</button></div></section></div>
+  <div id="arrival-dialog" class="modal-backdrop" hidden><section class="modal arrival-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="arrival-title"><span class="eyebrow">목적지 도착</span><h2 id="arrival-title">이 장소를 저장할까요?</h2><h3 id="arrival-place"></h3><p id="arrival-summary"></p><p class="modal-note">대화 요약, 추천 이유, 도착 날짜를 함께 저장해요.</p><div class="modal-footer"><button id="arrival-skip" class="button button-outline">저장 안 함</button><button id="arrival-save" class="button button-dark">장소 저장</button></div><p id="arrival-error" class="dialog-error" role="alert" hidden></p></section></div>
+  <div id="manual-arrival-dialog" class="modal-backdrop" hidden><section class="modal small-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="manual-arrival-title"><h2 id="manual-arrival-title">선택한 장소에 도착했나요?</h2><p id="manual-arrival-place"></p><p class="modal-note">이 확인은 차량의 자동 도착 감지가 아닌 직접 입력으로 기록돼요.</p><div class="modal-footer"><button id="manual-arrival-cancel" class="button button-outline">아직이에요</button><button id="manual-arrival-confirm" class="button button-dark">도착했어요</button></div><p id="manual-arrival-error" class="dialog-error" role="alert" hidden></p></section></div>
+  <div id="rating-dialog" class="modal-backdrop" hidden><section class="modal small-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="rating-title"><h2 id="rating-title">이 장소는 어땠나요?</h2><p id="rating-place-name"></p><form id="rating-form"><fieldset class="rating-choice"><legend>내 별점</legend><div class="rating-options"><label><input type="radio" name="visit-rating" value="1" required><span>1</span></label><label><input type="radio" name="visit-rating" value="2"><span>2</span></label><label><input type="radio" name="visit-rating" value="3"><span>3</span></label><label><input type="radio" name="visit-rating" value="4"><span>4</span></label><label><input type="radio" name="visit-rating" value="5"><span>5</span></label></div></fieldset><label for="rating-note">짧은 메모 · 선택</label><textarea id="rating-note" rows="3" maxlength="500" placeholder="맛있었던 메뉴나 다음에 기억할 점"></textarea><p class="modal-note">이 기기에 남기는 내 평가예요. 다른 사람의 별점과 합산하지 않아요.</p><p id="rating-error" class="dialog-error" role="alert" hidden></p><footer class="modal-footer"><button id="rating-cancel" type="button" class="button button-outline">취소</button><button id="rating-save" type="submit" class="button button-dark">평가 저장</button></footer></form></section></div>
+  <script src="app.js"></script>
+</body>
+</html>
