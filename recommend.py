@@ -402,7 +402,10 @@ def nominatim_search(parameters):
             if delay > 0:
                 time.sleep(delay)
         _NOMINATIM_LAST_REQUEST=time.monotonic()
-        return get_json(NOMINATIM_SEARCH_URL+'?'+urlencode(parameters))
+        try:
+            return get_json(NOMINATIM_SEARCH_URL+'?'+urlencode(parameters))
+        except Exception as error:
+            raise ValueError('외부 지도 서버에 연결하지 못했어요. 인터넷 연결을 확인하고 잠시 후 다시 추천해 주세요.') from error
 
 
 def get_nominatim_beaches(latitude, longitude, radius_m):
@@ -518,7 +521,7 @@ def get_nominatim_food_places(latitude, longitude, radius_m, food_topics, *, rep
     if report is not None:
         report['complete'] = completed == len(queries)
     if queries and not completed:
-        raise ValueError('음식 종류별 장소 검색을 완료하지 못했어요.')
+        raise ValueError('음식 종류별 장소 검색을 완료하지 못했어요. 인터넷 연결이나 외부 지도 서버에 문제가 있을 수 있어요. 잠시 후 다시 추천해 주세요.')
     return elements
 
 
@@ -650,92 +653,112 @@ def lookup_places(region, cache_dir, *, location=None, radius_m=4500, include_be
             raise ValueError('지역을 찾지 못했어요. 시·구 이름이나 역 이름을 더해 주세요.')
         latitude, longitude = float(locations[0]['lat']), float(locations[0]['lon'])
     general_radius=min(radius_m,4500) if include_beaches else radius_m
-    query='[out:json][timeout:6];'
-    if not beach_only:
-        query += f'''(
-          nwr(around:{general_radius},{latitude},{longitude})["amenity"~"^(cafe|restaurant|fast_food|food_court|ice_cream)$"]["name"];
-          nwr(around:{general_radius},{latitude},{longitude})["leisure"="park"]["name"];
-          nwr(around:{general_radius},{latitude},{longitude})["tourism"~"^(museum|gallery)$"]["name"];
-          nwr(around:{general_radius},{latitude},{longitude})["shop"="bakery"]["name"];
-        );out center tags {140 if include_beaches else 180};'''
-        if food_topics:
-            # Independent output sets reserve space for each requested dish.
-            # Bounded, user-triggered queries share the ordinary location cache.
-            for topic in food_topics:
-                name_pattern,cuisine=MENU_SEARCH_TERMS[topic]
-                query += f'''(
-                  nwr(around:{general_radius},{latitude},{longitude})["amenity"~"^(restaurant|fast_food|food_court)$"]["name"~"{name_pattern}"];
-                  nwr(around:{general_radius},{latitude},{longitude})["amenity"~"^(restaurant|fast_food|food_court)$"]["cuisine"~"(^|;){cuisine}(;|$)"]["name"];
-                );out center tags 35;'''
-    if include_beaches:
-        # Reserve beach results rather than letting cafes consume the limit.
-        query += f'nwr(around:{radius_m},{latitude},{longitude})["natural"="beach"]["name"];out center tags {180 if beach_only else 40};'
-    search_note=''
-    try:
-        result = get_json('https://overpass-api.de/api/interpreter?' + urlencode({'data': query}), timeout=8)
-        if result.get('remark'):
-            raise ValueError('Overpass did not finish the query.')
-        elements = result.get('elements', [])
-        coverage = center_label+f' 반경 약 {radius_m/1000:g}km'
+    # Reuse the same public OSM categories and distance normalization as
+    # travel discovery. Keep the snapshot's provenance and limitations visible.
+    from poi_index import query_candidates
+    groups = ('beach',) if beach_only else ('meal', 'cafe', 'bakery', 'park', 'culture')
+    local = query_candidates({'lat':latitude, 'lon':longitude},
+                             radius_m if beach_only else general_radius, groups)
+    if include_beaches and not beach_only:
+        beaches = query_candidates({'lat':latitude, 'lon':longitude}, radius_m, ('beach',))
+        if local is not None and beaches is not None:
+            local['elements'].extend(beaches['elements'])
+            local['search_note'] += beaches['search_note']
+    if local is not None and local['elements']:
+        payload = local
+        payload['region'] = region
+        payload['coverage'] = center_label+f' 반경 약 {radius_m/1000:g}km'
         if include_beaches and not beach_only and general_radius != radius_m:
-            coverage = center_label+f' 해변 반경 약 {radius_m/1000:g}km · 그 외 장소 반경 약 {general_radius/1000:g}km'
-        lookup_source = 'OpenStreetMap · Overpass API'
-    except Exception:
+            payload['coverage'] = center_label+f' 해변 반경 약 {radius_m/1000:g}km · 그 외 장소 반경 약 {general_radius/1000:g}km'
+        payload['discovery']['candidate_count'] = len(payload['elements'])
+        payload['discovery']['requested_groups'] = list(groups) + (['beach'] if include_beaches and not beach_only else [])
+    else:
+        query='[out:json][timeout:6];'
+        if not beach_only:
+            query += f'''(
+              nwr(around:{general_radius},{latitude},{longitude})["amenity"~"^(cafe|restaurant|fast_food|food_court|ice_cream)$"]["name"];
+              nwr(around:{general_radius},{latitude},{longitude})["leisure"="park"]["name"];
+              nwr(around:{general_radius},{latitude},{longitude})["tourism"~"^(museum|gallery)$"]["name"];
+              nwr(around:{general_radius},{latitude},{longitude})["shop"="bakery"]["name"];
+            );out center tags {140 if include_beaches else 180};'''
+            if food_topics:
+                # Independent output sets reserve space for each requested dish.
+                # Bounded, user-triggered queries share the ordinary location cache.
+                for topic in food_topics:
+                    name_pattern,cuisine=MENU_SEARCH_TERMS[topic]
+                    query += f'''(
+                      nwr(around:{general_radius},{latitude},{longitude})["amenity"~"^(restaurant|fast_food|food_court)$"]["name"~"{name_pattern}"];
+                      nwr(around:{general_radius},{latitude},{longitude})["amenity"~"^(restaurant|fast_food|food_court)$"]["cuisine"~"(^|;){cuisine}(;|$)"]["name"];
+                    );out center tags 35;'''
         if include_beaches:
-            try:
-                elements=get_nominatim_beaches(latitude,longitude,radius_m)
-            except Exception:
-                raise ValueError('해변 장소 검색을 완료하지 못했어요. 잠시 후 다시 추천해 주세요.') from None
-            coverage=center_label+f' 해변 반경 약 {radius_m/1000:g}km 내 일부 검색 결과'
-            lookup_source='OpenStreetMap · Nominatim Search'
-            search_note='해변 검색은 일부 일치 장소를 보여 주며, 이 지역의 모든 해변을 포함하지는 않아요.'
-            if not elements:
-                search_note+=' 이 범위에서 해변 후보를 찾지 못했어요.'
-            if not beach_only:
-                try:
-                    nearby=get_osm_area_places(latitude,longitude)
-                except Exception:
-                    search_note+=' 다른 종류의 장소 검색은 완료하지 못했어요.'
-                else:
-                    elements.extend(place for place in nearby if place.get('tags',{}).get('natural') != 'beach')
-                    coverage+=' · 그 외 장소는 중심에서 동서·남북 약 800m 범위'
-                    lookup_source+=' + Map API'
-        else:
-            if radius_m > 4500:
-                raise ValueError('넓은 범위의 장소 검색을 완료하지 못했어요. 잠시 후 다시 추천해 주세요.') from None
-            try:
-                elements = get_osm_area_places(latitude, longitude)
-            except Exception as error:
-                if not food_topics:
-                    raise ValueError('장소 데이터 서버에 연결하지 못했어요. 대화록은 유지돼요. 잠시 후 추천을 다시 눌러 주세요.') from error
-                elements=[]
-                coverage=center_label+'의 음식 종류별 검색'
-                lookup_source='OpenStreetMap'
-                search_note='일반 주변 장소 검색은 완료하지 못했어요.'
-            else:
-                coverage = center_label+'에서 동서·남북 약 800m 범위'
-                lookup_source = 'OpenStreetMap · Map API'
-    available_foods=set().union(*(mapped_meal_topics(place.get('tags',{})) for place in elements))
-    missing_foods=set(food_topics)-available_foods
-    menu_search_complete = True
-    if missing_foods and not beach_only:
-        menu_report = {}
+            # Reserve beach results rather than letting cafes consume the limit.
+            query += f'nwr(around:{radius_m},{latitude},{longitude})["natural"="beach"]["name"];out center tags {180 if beach_only else 40};'
+        search_note=''
         try:
-            food_places=get_nominatim_food_places(latitude,longitude,general_radius,missing_foods,report=menu_report)
+            result = get_json('https://overpass-api.de/api/interpreter?' + urlencode({'data': query}), timeout=8)
+            if result.get('remark'):
+                raise ValueError('Overpass did not finish the query.')
+            elements = result.get('elements', [])
+            coverage = center_label+f' 반경 약 {radius_m/1000:g}km'
+            if include_beaches and not beach_only and general_radius != radius_m:
+                coverage = center_label+f' 해변 반경 약 {radius_m/1000:g}km · 그 외 장소 반경 약 {general_radius/1000:g}km'
+            lookup_source = 'OpenStreetMap · Overpass API'
         except Exception:
-            menu_search_complete = False
-            search_note += ' 음식 종류별 보완 검색을 완료하지 못했어요.'
-        else:
-            menu_search_complete = menu_report.get('complete',True)
-            elements.extend(food_places)
-            coverage += f' · 음식 조건 보완 검색은 반경 약 {general_radius/1000:g}km 내 일부 결과'
-            lookup_source += ' + Nominatim Search'
-            search_note += ' 음식 조건 검색은 공개 정보에 등록된 일부 후보이며, 해당 지역의 모든 식당을 포함하지는 않아요.'
-            if not menu_search_complete:
-                search_note += ' 일부 음식 조건 검색은 완료하지 못했어요. 다시 추천하면 재시도해요.'
-    payload = {'region':region,'center':{'lat':latitude,'lon':longitude}, 'fetched_at':time.time(),
-               'elements':elements, 'coverage':coverage, 'lookup_source':lookup_source,'search_note':search_note,
-               'menu_search_complete':menu_search_complete}
+            if include_beaches:
+                try:
+                    elements=get_nominatim_beaches(latitude,longitude,radius_m)
+                except Exception:
+                    raise ValueError('해변 장소 검색을 완료하지 못했어요. 인터넷 연결이나 외부 지도 서버에 문제가 있을 수 있어요. 잠시 후 다시 추천해 주세요.') from None
+                coverage=center_label+f' 해변 반경 약 {radius_m/1000:g}km 내 일부 검색 결과'
+                lookup_source='OpenStreetMap · Nominatim Search'
+                search_note='해변 검색은 일부 일치 장소를 보여 주며, 이 지역의 모든 해변을 포함하지는 않아요.'
+                if not elements:
+                    search_note+=' 이 범위에서 해변 후보를 찾지 못했어요.'
+                if not beach_only:
+                    try:
+                        nearby=get_osm_area_places(latitude,longitude)
+                    except Exception:
+                        search_note+=' 다른 종류의 장소 검색은 완료하지 못했어요.'
+                    else:
+                        elements.extend(place for place in nearby if place.get('tags',{}).get('natural') != 'beach')
+                        coverage+=' · 그 외 장소는 중심에서 동서·남북 약 800m 범위'
+                        lookup_source+=' + Map API'
+            else:
+                if radius_m > 4500:
+                    raise ValueError('넓은 범위의 장소 검색을 완료하지 못했어요. 인터넷 연결이나 외부 지도 서버에 문제가 있을 수 있어요. 잠시 후 다시 추천해 주세요.') from None
+                try:
+                    elements = get_osm_area_places(latitude, longitude)
+                except Exception as error:
+                    if not food_topics:
+                        raise ValueError('외부 장소 데이터 서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요. 대화록은 유지돼요. 잠시 후 추천을 다시 눌러 주세요.') from error
+                    elements=[]
+                    coverage=center_label+'의 음식 종류별 검색'
+                    lookup_source='OpenStreetMap'
+                    search_note='일반 주변 장소 검색은 완료하지 못했어요.'
+                else:
+                    coverage = center_label+'에서 동서·남북 약 800m 범위'
+                    lookup_source = 'OpenStreetMap · Map API'
+        available_foods=set().union(*(mapped_meal_topics(place.get('tags',{})) for place in elements))
+        missing_foods=set(food_topics)-available_foods
+        menu_search_complete = True
+        if missing_foods and not beach_only:
+            menu_report = {}
+            try:
+                food_places=get_nominatim_food_places(latitude,longitude,general_radius,missing_foods,report=menu_report)
+            except Exception:
+                menu_search_complete = False
+                search_note += ' 음식 종류별 보완 검색을 완료하지 못했어요.'
+            else:
+                menu_search_complete = menu_report.get('complete',True)
+                elements.extend(food_places)
+                coverage += f' · 음식 조건 보완 검색은 반경 약 {general_radius/1000:g}km 내 일부 결과'
+                lookup_source += ' + Nominatim Search'
+                search_note += ' 음식 조건 검색은 공개 정보에 등록된 일부 후보이며, 해당 지역의 모든 식당을 포함하지는 않아요.'
+                if not menu_search_complete:
+                    search_note += ' 일부 음식 조건 검색은 완료하지 못했어요. 다시 추천하면 재시도해요.'
+        payload = {'region':region,'center':{'lat':latitude,'lon':longitude}, 'fetched_at':time.time(),
+                   'elements':elements, 'coverage':coverage, 'lookup_source':lookup_source,'search_note':search_note,
+                   'menu_search_complete':menu_search_complete}
     if current_coordinates is not None:
         location_poi_cache(cache_key, payload)
         return payload

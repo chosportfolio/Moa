@@ -9,8 +9,93 @@ from unittest.mock import patch
 from recommend import extract, get_nominatim_beaches, get_nominatim_food_places, lookup_places, nominatim_search, recommend, summarize_conversation
 
 
+class LocalPlaceLookupTests(unittest.TestCase):
+    def setUp(self):
+        import poi_index
+        temporary = tempfile.NamedTemporaryFile(suffix='.sqlite', dir=Path(__file__).parent/'tests', delete=False)
+        temporary.close()
+        self.path = Path(temporary.name)
+        self.addCleanup(self.path.unlink, missing_ok=True)
+        self.origin = {'latitude':37.4, 'longitude':127.1}
+        elements = [
+            {'type':'node', 'id':1, 'lat':37.401, 'lon':127.1, 'tags':{'name':'Local cafe', 'amenity':'cafe'}},
+            {'type':'node', 'id':2, 'lat':37.402, 'lon':127.1, 'tags':{'name':'Local meal', 'amenity':'restaurant'}},
+            {'type':'node', 'id':3, 'lat':37.41, 'lon':127.1, 'tags':{'name':'Outside radius', 'amenity':'cafe'}},
+            {'type':'node', 'id':4, 'lat':37.401, 'lon':127.1, 'tags':{'name':'Inland beach', 'natural':'beach'}},
+        ]
+        poi_index.write_index(elements, self.path)
+        for patcher in (patch('poi_index.DEFAULT_DB_PATH', self.path),
+                        patch.dict('os.environ', {'CABIN_POI_INDEX':str(self.path)}),
+                        patch('recommend._LOCATION_POI_CACHE', OrderedDict())):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_local_results_survive_external_errors_timeouts_and_empty_responses(self):
+        for failure in (OSError('offline'), TimeoutError('timeout'), None):
+            with self.subTest(failure=failure), \
+                    patch('recommend.get_json', side_effect=failure, return_value={'elements':[]}) as remote, \
+                    patch('recommend.nominatim_search', side_effect=failure, return_value=[]) as geocode, \
+                    patch('recommend.get_osm_area_places', side_effect=failure, return_value=[]) as map_api, \
+                    patch('recommend._LOCATION_POI_CACHE', OrderedDict()):
+                result = lookup_places('', Path('tests'), location=self.origin, radius_m=500)
+                self.assertEqual({1, 2}, {place['id'] for place in result['elements']})
+                self.assertEqual('local_public_index', result['discovery']['mode'])
+                self.assertEqual({'lat':37.4, 'lon':127.1}, result['center'])
+                remote.assert_not_called()
+                geocode.assert_not_called()
+                map_api.assert_not_called()
+
+    def test_named_region_uses_geocoded_center_then_works_offline_from_cache(self):
+        region = 'local-index-test-region'
+        cache = Path('tests')/(hashlib.sha256(region.encode()).hexdigest()+'.json')
+        self.assertFalse(cache.exists())
+        self.addCleanup(cache.unlink, missing_ok=True)
+        with patch('recommend.nominatim_search', return_value=[{'lat':'37.4','lon':'127.1'}]), \
+                patch('recommend.get_json', side_effect=OSError('offline')):
+            result = lookup_places(region, Path('tests'))
+        self.assertEqual({1, 2, 3}, {place['id'] for place in result['elements']})
+        with patch('recommend.nominatim_search', side_effect=OSError('offline')) as geocode:
+            self.assertEqual(result, lookup_places(region, Path('tests')))
+            geocode.assert_not_called()
+
+    def test_bundled_index_produces_real_nearby_places_without_network(self):
+        bundled = Path(__file__).parent/'data'/'maps'/'pois.sqlite'
+        self.assertTrue(bundled.is_file(), 'The public POI index must ship with the project')
+        with patch.dict('os.environ', {'CABIN_POI_INDEX':str(bundled)}), \
+                patch('recommend.get_json', side_effect=OSError('offline')), \
+                patch('recommend.nominatim_search', side_effect=OSError('offline')), \
+                patch('recommend.get_osm_area_places', side_effect=OSError('offline')):
+            result = lookup_places('', Path('tests'), location={'latitude':37.5665,'longitude':126.978})
+        self.assertTrue(result['elements'])
+        self.assertEqual('local_public_index', result['discovery']['mode'])
+
+    def test_missing_or_empty_local_index_preserves_external_search(self):
+        for local in (None, {'elements':[]}):
+            with self.subTest(local=local), \
+                    patch('poi_index.query_candidates', return_value=local), \
+                    patch('recommend._LOCATION_POI_CACHE', OrderedDict()), \
+                    patch('recommend.get_json', return_value={'elements':[]}) as remote:
+                result = lookup_places('', Path('tests'), location=self.origin)
+                self.assertEqual([], result['elements'])
+                self.assertIn('Overpass', result['lookup_source'])
+                remote.assert_called_once()
+
+    def test_nominatim_user_agent_identifies_app_without_contact_details(self):
+        from recommend import get_json
+        with patch('recommend.urlopen') as open_url:
+            open_url.return_value.__enter__.return_value.read.return_value = b'[]'
+            get_json('https://nominatim.openstreetmap.org/search?q=test')
+        agent = open_url.call_args.args[0].get_header('User-agent')
+        self.assertIn('CabinConversationPrototype/', agent)
+        self.assertNotIn('@', agent)
+
+
 class RecommendationTests(unittest.TestCase):
     def setUp(self):
+        # Existing remote-path tests must not depend on a bundled/local snapshot.
+        index_patcher = patch('poi_index.query_candidates', return_value=None)
+        index_patcher.start()
+        self.addCleanup(index_patcher.stop)
         for name,value in [('NOMINATIM_MIN_INTERVAL',0),('_NOMINATIM_LAST_REQUEST',None),('_LOCATION_POI_CACHE',OrderedDict())]:
             patcher=patch('recommend.'+name,value)
             patcher.start()

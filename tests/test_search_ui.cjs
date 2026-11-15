@@ -302,4 +302,56 @@ async function run() {
   });
   console.log(`Search UI: ${passed} request, region-choice and place-card contracts passed.`);
 }
-run().catch(error => { console.error(error); process.exitCode = 1; });
+async function pollingRegressions() {
+  function setup(replies) {
+    const nodes = new Map(), timers = new Map();
+    let now = 0, nextTimer = 0, requests = 0;
+    const context = {
+      $: id => { if (!nodes.has(id)) nodes.set(id, {dataset:{}}); return nodes.get(id); },
+      Date: {now: () => now},
+      setTimeout: (fn, delay) => { timers.set(++nextTimer, {fn, delay}); return nextTimer; },
+      clearTimeout: id => timers.delete(id),
+      request: async () => { requests++; const value = replies.shift(); if (value instanceof Error) throw value; return value; },
+      notify() {}, render() {}, renderControls() {},
+    };
+    vm.createContext(context);
+    vm.runInContext(`let activeJob = null, processing = false, processingPurpose, processingMessage, pollTimer;
+      ${section('  function watchJob(', '  function openRegionPicker(')}
+      globalThis.start = () => watchJob('job', 'recommend');
+      globalThis.isProcessing = () => processing;`, context);
+    return {context, nodes, timers, requests: () => requests, clock: value => { now = value; },
+      async tick(delay) {
+        const entry = [...timers].find(([, timer]) => timer.delay === delay);
+        assert(entry, `Missing timer ${delay}`);
+        timers.delete(entry[0]); await entry[1].fn();
+      }};
+  }
+  for (const status of ['error', 'failed']) {
+    const f = setup([{status, message:'외부 지도 서버 응답 없음'}]);
+    f.context.start(); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(f.context.isProcessing(), false);
+    assert.equal(f.requests(), 1);
+    assert.equal(f.timers.size, 0);
+    assert.equal(f.nodes.get('places-empty').dataset.jobError, '외부 지도 서버 응답 없음');
+  }
+  const failures = setup(Array.from({length:5}, () => new Error('network failed')));
+  failures.context.start(); await new Promise(resolve => setImmediate(resolve));
+  for (let i=0; i<4; i++) await failures.tick(2000);
+  assert.equal(failures.requests(), 5);
+  assert.equal(failures.context.isProcessing(), false);
+  assert.equal(failures.timers.size, 0);
+  const timeout = setup([{status:'running'}]);
+  timeout.context.start(); await new Promise(resolve => setImmediate(resolve));
+  timeout.clock(120000); await timeout.tick(120000);
+  assert.equal(timeout.context.isProcessing(), false);
+  assert.equal(timeout.timers.size, 0);
+  assert.match(timeout.nodes.get('places-empty').dataset.jobError, /검색이 오래 걸려요/);
+  const render = fixture();
+  render.ui.renderPlaces();
+  render.node('places-empty').dataset.jobError = '외부 서버 오류';
+  render.ui.renderPlaces();
+  assert.equal(render.node('places-empty-description').textContent, '외부 서버 오류');
+  assert.equal(render.node('places-empty-action').dataset.mode, 'recommend');
+  console.log('Job polling: terminal errors, five failures, deadline and retry card passed.');
+}
+Promise.all([run(), pollingRegressions()]).catch(error => { console.error(error); process.exitCode = 1; });

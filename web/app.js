@@ -264,7 +264,7 @@
       const ready = Boolean(state.models?.ready);
       $('connection-badge').className = 'connection-badge ' + (ready ? 'ready' : '');
       $('connection-badge').lastElementChild.textContent = ready ? '음성 연결됨' : '음성 준비 중';
-      if (state.job && ['queued', 'running', 'processing', 'pending'].includes(state.job.status) && !activeJob && !recording && !streamRunning && !streamFailure) {
+      if (state.job && !watchJob.stopped?.has(state.job.id || state.job.job_id) && ['queued', 'running', 'processing', 'pending'].includes(state.job.status) && !activeJob && !recording && !streamRunning && !streamFailure) {
         processing = true;
         const message = state.job.message || '';
         const purpose = /장소|추천/.test(message) ? 'recommend' : 'meeting';
@@ -421,7 +421,7 @@
     const selectedGroup = $('place-filters').dataset?.selected || '전체';
     const activeGroup = groups.includes(selectedGroup) ? selectedGroup : '전체';
     const hasTranscript = asArray(state.segments).some(segment => segment.final !== false && !segment.provisional);
-    const signature = JSON.stringify([recommendations, constraints, state.coverage, state.lookup_source, state.region, state.notice, state.recommendation_summary, state.search_intent, state.request_profile, activeGroup, hasTranscript]);
+    const signature = JSON.stringify([recommendations, constraints, state.coverage, state.lookup_source, state.region, state.notice, state.recommendation_summary, state.search_intent, state.request_profile, activeGroup, hasTranscript, $('places-empty').dataset.jobError]);
     if (signature === placesSignature) return;
     placesSignature = signature;
     renderRecommendationSummary();
@@ -440,6 +440,12 @@
     $('places-empty-action').textContent = hasSearchResult ? (timedSearch ? '다시 찾아보기' : '검색 지역 바꾸기') : hasTranscript ? '장소 추천받기' : '대화 시작';
     $('places-empty-action').dataset.mode = hasSearchResult ? (timedSearch ? 'recommend' : 'region') : hasTranscript ? 'recommend' : 'record';
     $('places-empty-sample').hidden = hasTranscript;
+    if ($('places-empty').dataset.jobError) {
+      $('places-empty-title').textContent = '장소를 찾지 못했어요';
+      $('places-empty-description').textContent = $('places-empty').dataset.jobError;
+      $('places-empty-action').textContent = '다시 찾아보기';
+      $('places-empty-action').dataset.mode = 'recommend';
+    }
     $('preference-summary').hidden = constraints.length === 0 || !$('conversation-summary').hidden;
     $('preference-list').innerHTML = constraints.map(constraint => {
       if (typeof constraint === 'string') return `<div class="preference-row"><span class="pref-name">함께</span><div class="pref-chips"><span class="pref-chip">${escapeHtml(constraint)}</span></div></div>`;
@@ -1003,7 +1009,7 @@
     $('listening-description').textContent = microphonePaused ? '다른 음성 기능이 마이크를 사용 중이에요. 그동안의 말은 기록되지 않아요.' : recording?.speechPartial || (live ? '인식된 내용이 대화창에 이어져요.' : '대화를 마치면 녹음한 내용을 정리해요.');
     $('job-card').hidden = !processing || meeting || Boolean(streamFailure);
     $('places-job').hidden = !processing || !findingPlaces;
-    $('places-empty').hidden = asArray(state.recommendations).length > 0 || (processing && findingPlaces);
+    $('places-empty').hidden = (!$('places-empty').dataset.jobError && asArray(state.recommendations).length > 0) || (processing && findingPlaces);
     $('dock-dot').classList.toggle('recording', (meeting || live) && !microphonePaused);
     if (microphonePaused) {
       $('dock-title').textContent = '마이크를 사용할 수 있을 때 이어서 들어요';
@@ -1450,40 +1456,59 @@
     processing = true;
     processingPurpose = purpose;
     let failures = 0;
+    const startedAt = Date.now();
+    const timeoutMessage = '검색이 오래 걸려요. 인터넷 연결을 확인하고 다시 시도해 주세요';
+    const stop = message => {
+      if (activeJob !== id) return;
+      clearTimeout(pollTimer);
+      clearTimeout(deadlineTimer);
+      (watchJob.stopped ||= new Set()).add(id);
+      activeJob = null;
+      processing = false;
+      if (purpose === 'recommend' && message) $('places-empty').dataset.jobError = message;
+      if (message) notify(message, true);
+      render();
+    };
+    const deadlineTimer = setTimeout(() => stop(timeoutMessage), 120000);
     const poll = async () => {
+      if (activeJob !== id) return;
+      if (Date.now() - startedAt >= 120000) return stop(timeoutMessage);
+      let job;
       try {
-        const job = await request('/api/jobs/' + encodeURIComponent(id), {timeout: 12000});
+        job = await request('/api/jobs/' + encodeURIComponent(id), {timeout: 12000});
+      } catch (error) {
         if (activeJob !== id) return;
-        failures = 0;
-        processingMessage = job.message || '';
-        $('job-message').textContent = job.message || '음성을 분석하고 있어요.';
-        $('places-job-message').textContent = job.message || '대화에서 나온 조건으로 장소를 찾고 있어요.';
-        if (['done', 'complete', 'completed', 'success', 'succeeded'].includes(job.status)) {
-          activeJob = null;
-          processing = false;
+        if (Date.now() - startedAt >= 120000) return stop(timeoutMessage);
+        failures++;
+        if (failures < 5) {
+          processingMessage = '연결 상태를 다시 확인하고 있어요.';
+          renderControls();
+          pollTimer = setTimeout(poll, 2000);
+          return;
+        }
+        return stop(error.message);
+      }
+      if (activeJob !== id) return;
+      if (Date.now() - startedAt >= 120000) return stop(timeoutMessage);
+      failures = 0;
+      if (['failed', 'error', 'cancelled'].includes(job.status)) {
+        return stop(job.error || job.message || '처리하지 못했어요. 다시 시도해 주세요.');
+      }
+      processingMessage = job.message || '';
+      if (['done', 'complete', 'completed', 'success', 'succeeded'].includes(job.status)) {
+        stop();
+        try {
           await refreshState();
           if (purpose === 'recommend') speakRequestedRecommendations();
           notify(purpose === 'recommend'
             ? (asArray(state.recommendations).length ? `대화에 맞춰 장소 ${state.recommendations.length}곳을 찾았어요.` : '조건에 맞는 장소를 찾지 못했어요. 검색 범위를 확인해 주세요.')
             : '대화록을 정리했어요. 발언을 누르면 내용을 수정할 수 있어요.');
           render();
-          return;
-        }
-        if (['failed', 'error', 'cancelled'].includes(job.status)) throw new Error(job.error || job.message || '음성을 처리하지 못했어요. 다시 시도해 주세요.');
-        renderControls();
-        pollTimer = setTimeout(poll, 1000);
-      } catch (error) {
-        failures++;
-        if (failures < 3 && !/failed|처리하지/.test(error.message)) {
-          $('job-message').textContent = '연결 상태를 다시 확인하고 있어요.';
-          pollTimer = setTimeout(poll, 2000);
-          return;
-        }
-        activeJob = null;
-        processing = false;
-        notify(error.message, true);
-        render();
+        } catch (error) { notify(error.message, true); }
+        return;
       }
+      renderControls();
+      pollTimer = setTimeout(poll, 1000);
     };
     poll();
   }
@@ -1571,6 +1596,7 @@
     processing = true;
     processingPurpose = 'recommend';
     showPlaceDetail = false;
+    delete $('places-empty').dataset.jobError;
     processingMessage = '대화에서 나온 조건을 모으고 있어요.';
     $('job-title').textContent = '함께 갈 장소 찾는 중';
     $('job-message').textContent = '대화에서 나온 조건을 모으고 있어요.';

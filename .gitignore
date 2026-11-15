@@ -1,7 +1,9 @@
 # Local runtimes, downloaded SDKs/models, and generated user data
 /.venv/
 /models/
-/data/
+/data/*
+!/data/maps/
+/data/maps/*
 /tools/*
 !/tools/build_poi_index.py
 /android/build/
@@ -56,3 +58,6 @@ __pycache__/
 local.properties
 Thumbs.db
 .DS_Store
+
+# Ship only the public POI index, not raw map extracts or user data.
+!/data/maps/pois.sqlite

@@ -1396,5 +1396,40 @@ class ServerStateTests(unittest.TestCase):
         self.assertEqual(server.STATE['segments'],[])
 
 
+class JobDeadlineTests(unittest.TestCase):
+    def test_timeout_rejects_late_commit_and_completion(self):
+        from unittest.mock import Mock
+        worker = Mock()
+        timer = Mock()
+        clock = [0]
+        with patch.multiple(server, JOBS={}, ACTIVE_JOB=None, WORKER=worker), \
+                patch.object(server.threading, 'Timer', return_value=timer) as make_timer, \
+                patch.object(server.time, 'monotonic', side_effect=lambda: clock[0]):
+            def action():
+                clock[0] = 101
+                make_timer.call_args.args[1]()
+                self.assertEqual(server.JOBS[identifier]['status'], 'error')
+                with self.assertRaises(TimeoutError):
+                    server.save_state({})
+                return {'late': True}
+            identifier = server.queue_job(action, 'search')
+            worker.submit.call_args.args[0]()
+            self.assertEqual(server.JOBS[identifier]['status'], 'error')
+            self.assertNotIn('result', server.JOBS[identifier])
+            self.assertIn('인터넷', server.JOBS[identifier]['message'])
+            timer.cancel.assert_called_once()
+
+    def test_expired_queued_job_does_not_run(self):
+        from unittest.mock import Mock
+        worker, action = Mock(), Mock()
+        with patch.multiple(server, JOBS={}, ACTIVE_JOB=None, WORKER=worker), \
+                patch.object(server.threading, 'Timer') as timer:
+            identifier = server.queue_job(action, 'search')
+            timer.call_args.args[1]()
+            worker.submit.call_args.args[0]()
+            action.assert_not_called()
+            self.assertEqual(server.JOBS[identifier]['status'], 'error')
+
+
 if __name__ == '__main__':
     unittest.main()

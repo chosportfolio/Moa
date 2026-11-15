@@ -75,6 +75,8 @@ STATE_FILE = DATA/'meeting.json'
 ENGINE = SpeechEngine(ROOT/'models',DATA/'profiles.json')
 LOCK = threading.RLock()
 WORKER = ThreadPoolExecutor(max_workers=1)
+JOB_TIMEOUT_SECONDS = 100
+JOB_CONTEXT = threading.local()
 JOBS = {}
 STATE = load_state(STATE_FILE, {'segments':[], 'recommendations':[], 'constraints':[], 'region':'', 'demo':False,
          'notice':'', 'coverage':'', 'lookup_source':'', 'recommendation_summary':{},
@@ -151,6 +153,10 @@ def public_location():
 
 def save_state(candidate=None):
     """Caller holds LOCK; publish changes only after their atomic disk commit."""
+    job_id = getattr(JOB_CONTEXT, 'identifier', None)
+    if job_id and (JOBS.get(job_id, {}).get('status') != 'running'
+                   or time.monotonic() >= JOB_CONTEXT.deadline):
+        raise TimeoutError('처리 시간이 오래 걸리고 있어요. 인터넷 연결을 확인하고 다시 시도해 주세요.')
     committed = copy.deepcopy(STATE if candidate is None else candidate)
     _repair_orphan_selections(committed)
     previous_revision = STATE.get('state_revision', 0)
@@ -264,16 +270,45 @@ def queue_job(action, message):
         ACTIVE_JOB = identifier
         while len(JOBS) > 40:
             JOBS.pop(next(iter(JOBS)))
+    deadline = time.monotonic() + JOB_TIMEOUT_SECONDS
+    def expire():
+        with LOCK:
+            job = JOBS.get(identifier)
+            if job and job['status'] in ('queued', 'running'):
+                job.update(status='error', message='처리 시간이 오래 걸리고 있어요. 외부 지도 서버 응답이 없거나 인터넷 연결이 불안정할 수 있어요. 다시 시도해 주세요.')
+    timer = threading.Timer(JOB_TIMEOUT_SECONDS, expire)
+    timer.daemon = True
+    timer.start()
     def run():
-        with LOCK: JOBS[identifier]['status']='running'
+        with LOCK:
+            if time.monotonic() >= deadline:
+                expire()
+            if identifier not in JOBS or JOBS[identifier]['status'] != 'queued':
+                return
+            JOBS[identifier]['status'] = 'running'
+        JOB_CONTEXT.identifier = identifier
+        JOB_CONTEXT.deadline = deadline
         try:
-            result=action()
-            with LOCK: JOBS[identifier].update(status='complete',message='완료',result=result)
+            result = action()
+            with LOCK:
+                if time.monotonic() >= deadline:
+                    expire()
+                if JOBS.get(identifier, {}).get('status') == 'running':
+                    JOBS[identifier].update(status='complete', message='완료', result=result)
         except Exception as error:
-            with LOCK: JOBS[identifier].update(status='error',message=str(error)[:400])
+            with LOCK:
+                if time.monotonic() >= deadline:
+                    expire()
+                if JOBS.get(identifier, {}).get('status') == 'running':
+                    JOBS[identifier].update(status='error', message=str(error)[:400])
+        finally:
+            timer.cancel()
+            del JOB_CONTEXT.identifier
+            del JOB_CONTEXT.deadline
     try:
         WORKER.submit(run)
     except Exception:
+        timer.cancel()
         with LOCK: JOBS[identifier].update(status='error',message='작업을 시작하지 못했어요. 다시 시도해 주세요.')
         raise
     return identifier
